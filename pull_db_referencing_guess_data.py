@@ -46,12 +46,18 @@ if __name__ == '__main__':
                     # get table name
                     table_name = table[0]
 
-                    # collect tables with thier respective database
-                    all_tables.append('{}.{}'.format(database_name,table_name))
+                    # construct full table name
+                    full_table_name = '{}.{}'.format(database_name,table_name)
 
                     # get table details
                     cursor.execute('DESCRIBE `{}`'.format(table_name))
                     columns = cursor.fetchall()
+
+                    # make table model
+                    table_model = {'name': full_table_name, 'columns': columns}
+
+                    # collect tables with thier respective database
+                    all_tables.append(table_model)
 
                     for column in columns:
                         # get column name
@@ -64,10 +70,10 @@ if __name__ == '__main__':
                             #check if the column name is in the refering list
                             if column_name in reference_count_per_match.keys():
                                 # if so append another table to the referencing column
-                                reference_count_per_match[column_name][relation_column].append(table_name)
+                                reference_count_per_match[column_name][relation_column].append(full_table_name)
                             else:
                                 # if not create a column for that purpose and provide it a table name
-                                reference_count_per_match[column_name] = {relation_column: [table_name], to_table_col_name: []}
+                                reference_count_per_match[column_name] = {relation_column: [full_table_name], to_table_col_name: []}
 
             # close table connections because we no longer query the database
             cursor.close()
@@ -87,6 +93,9 @@ if __name__ == '__main__':
                 reference_count_per_match_obj[item[0]] = item[1]
                 reference_count_per_match_obj[item[0]]['count'] = len(item[1][relation_column])
 
+            # map all table names
+            all_table_names = map(lambda t: t['name'], all_tables)
+
             # loop through referncing columns
             # to find their candidate table
             for reference_column in reference_count_per_match_obj.keys():
@@ -105,7 +114,7 @@ if __name__ == '__main__':
                 # and ies or s or two letters in the end and ends with that letter
                 match = re.compile(r'.*\.tb_{}(ies|s|..)$'.format(reference_as_table))
                 # loop through all tables and match 
-                for table in all_tables:
+                for table in all_table_names:
                     if match.match(table):
                         reference_count_per_match_obj[reference_column][to_table_col_name].append(table)
                         # tag the candidate level as high
@@ -118,7 +127,7 @@ if __name__ == '__main__':
                     match = re.compile(r'.*\.tb_{}.*'.format(reference_as_table))
                     
                     # loop through all tables and match 
-                    for table in all_tables:
+                    for table in all_table_names:
                         if match.match(table):
                             reference_count_per_match_obj[reference_column][to_table_col_name].append(table)
                             # tag the candidate level as medium
@@ -129,10 +138,10 @@ if __name__ == '__main__':
                 if len(reference_count_per_match_obj[reference_column][to_table_col_name]) == 0:
                 
                     # do another match with the ref column that contains the name
-                    match = re.compile(r'.*\..*{}.*'.format(reference_as_table))
+                    match = re.compile(r'.*{}.*'.format(reference_as_table))
                     
                     # loop through all tables and match 
-                    for table in all_tables:
+                    for table in all_table_names:
                         if match.match(table):
                             reference_count_per_match_obj[reference_column][to_table_col_name].append(table)
                             # tag the candidate level as low
@@ -143,6 +152,7 @@ if __name__ == '__main__':
                 if len(reference_count_per_match_obj[reference_column][to_table_col_name]) == 0:
                     # tag the candidate level as no candidates
                     reference_count_per_match_obj[reference_column][candidate_level_col] = 'NO_CANDIDATE'
+                    # show if a column both doesn't have a candidate table and has no references
                     reference_count_per_match_obj[reference_column][is_dangling_col] = reference_count_per_match_obj[item[0]]['count'] == 0
 
 
