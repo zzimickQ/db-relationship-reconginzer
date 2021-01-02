@@ -1,11 +1,21 @@
 from mysql.connector import connect, Error
 from json import dumps
 import re
+from cli import read_params
+
+
+def _clean_array_to_string(arr_or_string):
+    if type(arr_or_string) is list and not len(arr_or_string) == 0:
+        return arr_or_string[0]
+    return arr_or_string
+
+def clean_array(arr_list):
+    return list(map(_clean_array_to_string, arr_list))
 
 if __name__ == '__main__':
-
+    params = read_params()
     try:
-        with connect(host="localhost", user="root", password="password") as conn:
+        with connect(host=params.host, port=params.port, user=params.user, password=params.password) as conn:
 
             # repeated column defenitions
             to_table_col_name = 'candidate_table'
@@ -28,7 +38,7 @@ if __name__ == '__main__':
             databases = cursor.fetchall()
 
             # filter jungoo databases
-            jugnoo_databases = filter(lambda x: 'jugnoo_' in x[0], databases)
+            jugnoo_databases = filter(lambda x: params.db_prefix in x[0], databases)
             
 
             for database in jugnoo_databases:
@@ -114,7 +124,7 @@ if __name__ == '__main__':
                 # and ies or s or two letters in the end and ends with that letter
                 match = re.compile(r'^(.*\.tb_{}(ies|s|..))$'.format(reference_as_table), re.M | re.A)
 
-                reference_count_per_match_obj[reference_column][to_table_col_name] = match.findall(all_table_names_str)
+                reference_count_per_match_obj[reference_column][to_table_col_name] = clean_array(match.findall(all_table_names_str))
 
                 if len(reference_count_per_match_obj[reference_column][to_table_col_name]) > 0:
                     # tag the candidate level as high
@@ -135,58 +145,13 @@ if __name__ == '__main__':
 
                 reference_count_per_match_obj[reference_column][to_table_col_name] = list(reference_count_per_match_obj[reference_column][to_table_col_name])
 
-                # # loop through all tables and match 
-                # for table in all_table_names:
-    
-
-                #     if match.match(table):
-                #         # tag the candidate level as high
-                #         reference_count_per_match_obj[reference_column][candidate_level_col] = 'HIGH_CANDIDATE'
-
-                
-                #     # if no candidate tables were not found for this ref column
-                #     if len(reference_count_per_match_obj[reference_column][to_table_col_name]) == 0:
-                    
-                #         # loop through all tables and match 
-                #         for table in all_table_names:
-
-                #             # do another match with the ref column but only tb_ is required in the front
-                #             match = re.compile(r'(.*\.tb_{}.*)'.format(reference_as_table))
-
-                #             if match.match(table):
-                #                 reference_count_per_match_obj[reference_column][to_table_col_name].append(table)
-                #                 # tag the candidate level as medium
-                #                 reference_count_per_match_obj[reference_column][candidate_level_col] = 'MEDIUM_CANDIDATE'
-
-                    
-                #     # if no candidate tables were not found for this ref column
-                #     if len(reference_count_per_match_obj[reference_column][to_table_col_name]) == 0:
-                    
-                #         # loop through all tables and match 
-                #         for table in all_table_names:
-                        
-                #             # do another match with the ref column that contains the name
-                #             match = re.compile(r'(.*{}.*)'.format(reference_as_table))
-                            
-                #             if match.match(table):
-                #                 reference_count_per_match_obj[reference_column][to_table_col_name].append(table)
-                #                 # tag the candidate level as low
-                #                 reference_count_per_match_obj[reference_column][candidate_level_col] = 'LOW_CANDIDATE'
-
-
-                #     # if no candidate tables were not found for this ref column
-                #     if len(reference_count_per_match_obj[reference_column][to_table_col_name]) == 0:
-                #         # tag the candidate level as no candidates
-                #         reference_count_per_match_obj[reference_column][candidate_level_col] = 'NO_CANDIDATE'
-                #         # show if a column both doesn't have a candidate table and has no references
-                #         reference_count_per_match_obj[reference_column][is_dangling_col] = reference_count_per_match_obj[item[0]]['count'] == 0
-
-
             # dump collected data to json
             json_print = dumps(reference_count_per_match_obj, indent=4)
 
             # save dump to file
-            open('tmp/guess_reference_data.json', 'w').write(json_print)
+            open(params.output, 'w').write(json_print)
+
+            print("Done!")
 
 
             # close table connections because we no longer query the database

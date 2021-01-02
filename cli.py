@@ -35,7 +35,8 @@ _parser.add_argument('--password', '-s',
 
 
 
-params = _parser.parse_args()
+def read_params():
+    return _parser.parse_args()
 
 if __name__ == '__main__':
-    print(params)
+    print(read_params())
