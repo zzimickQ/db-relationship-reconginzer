@@ -73,7 +73,7 @@ if __name__ == '__main__':
                                 reference_count_per_match[column_name][relation_column].append(full_table_name)
                             else:
                                 # if not create a column for that purpose and provide it a table name
-                                reference_count_per_match[column_name] = {relation_column: [], to_table_col_name: []}
+                                reference_count_per_match[column_name] = {relation_column: [full_table_name], to_table_col_name: []}
 
 
             # sort the references with significance of referenced table count
@@ -106,7 +106,7 @@ if __name__ == '__main__':
                 reference_as_table = re.sub(r'(_id.*)$', '', reference_column)
 
 
-                # if final str ends with a 'y' remove the character
+                # if str ends with a 'y' remove the character
                 if reference_as_table[-1] == 'y':
                     reference_as_table = reference_as_table[:-1]
 
@@ -121,12 +121,12 @@ if __name__ == '__main__':
                     reference_count_per_match_obj[reference_column][candidate_level_col] = 'HIGH_CANDIDATE'
 
                 if len(reference_count_per_match_obj[reference_column][to_table_col_name]) == 0:
-                    match = re.compile(r'^(.*\.{}.*)$'.format(reference_as_table))
+                    match = re.compile(r'^(.*\.tb_{}.*)$'.format(reference_as_table), re.M | re.A)
                     reference_count_per_match_obj[reference_column][to_table_col_name] = match.findall(all_table_names_str)
                     reference_count_per_match_obj[reference_column][candidate_level_col] = 'MEDIUM_CANDIDATE'
 
                 if len(reference_count_per_match_obj[reference_column][to_table_col_name]) == 0:
-                    match = re.compile(r'(.*{}.*)'.format(reference_as_table))
+                    match = re.compile(r'^(.*{}.*)$'.format(reference_as_table), re.M | re.A)
                     reference_count_per_match_obj[reference_column][to_table_col_name] = match.findall(all_table_names_str)
                     reference_count_per_match_obj[reference_column][candidate_level_col] = 'LOW_CANDIDATE'
                 
