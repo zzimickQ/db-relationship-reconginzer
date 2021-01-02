@@ -73,11 +73,8 @@ if __name__ == '__main__':
                                 reference_count_per_match[column_name][relation_column].append(full_table_name)
                             else:
                                 # if not create a column for that purpose and provide it a table name
-                                reference_count_per_match[column_name] = {relation_column: [full_table_name], to_table_col_name: []}
+                                reference_count_per_match[column_name] = {relation_column: [], to_table_col_name: []}
 
-            # close table connections because we no longer query the database
-            cursor.close()
-            conn.close()
 
             # sort the references with significance of referenced table count
             # this process removed the dict and changes it to a tuple
@@ -94,17 +91,20 @@ if __name__ == '__main__':
                 reference_count_per_match_obj[item[0]]['count'] = len(item[1][relation_column])
 
             # map all table names
-            all_table_names = map(lambda t: t['name'], all_tables)
-
+            all_table_names = []
+            all_table_names_str = ''
+            for table in all_tables:
+                all_table_names.append(table['name'])
+                all_table_names_str += table['name'] + '\n'
+            
             # loop through referncing columns
             # to find their candidate table
             for reference_column in reference_count_per_match_obj.keys():
 
+                
                 # remove the _id and anything after it from the reference columns
                 reference_as_table = re.sub(r'(_id.*)$', '', reference_column)
 
-                if len(reference_as_table) == 0:
-                    print(reference_as_table, reference_column)
 
                 # if final str ends with a 'y' remove the character
                 if reference_as_table[-1] == 'y':
@@ -112,48 +112,74 @@ if __name__ == '__main__':
 
                 # do a specific search where it will search for tb_ at front and 
                 # and ies or s or two letters in the end and ends with that letter
-                match = re.compile(r'.*\.tb_{}(ies|s|..)$'.format(reference_as_table))
-                # loop through all tables and match 
-                for table in all_table_names:
-                    if match.match(table):
-                        reference_count_per_match_obj[reference_column][to_table_col_name].append(table)
-                        # tag the candidate level as high
-                        reference_count_per_match_obj[reference_column][candidate_level_col] = 'HIGH_CANDIDATE'
-                
-                # if no candidate tables were not found for this ref column
-                if len(reference_count_per_match_obj[reference_column][to_table_col_name]) == 0:
-                
-                    # do another match with the ref column but only tb_ is required in the front
-                    match = re.compile(r'.*\.tb_{}.*'.format(reference_as_table))
-                    
-                    # loop through all tables and match 
-                    for table in all_table_names:
-                        if match.match(table):
-                            reference_count_per_match_obj[reference_column][to_table_col_name].append(table)
-                            # tag the candidate level as medium
-                            reference_count_per_match_obj[reference_column][candidate_level_col] = 'MEDIUM_CANDIDATE'
+                match = re.compile(r'^(.*\.tb_{}(ies|s|..))$'.format(reference_as_table), re.M | re.A)
 
-                
-                # if no candidate tables were not found for this ref column
-                if len(reference_count_per_match_obj[reference_column][to_table_col_name]) == 0:
-                
-                    # do another match with the ref column that contains the name
-                    match = re.compile(r'.*{}.*'.format(reference_as_table))
-                    
-                    # loop through all tables and match 
-                    for table in all_table_names:
-                        if match.match(table):
-                            reference_count_per_match_obj[reference_column][to_table_col_name].append(table)
-                            # tag the candidate level as low
-                            reference_count_per_match_obj[reference_column][candidate_level_col] = 'LOW_CANDIDATE'
+                reference_count_per_match_obj[reference_column][to_table_col_name] = match.findall(all_table_names_str)
 
+                if len(reference_count_per_match_obj[reference_column][to_table_col_name]) > 0:
+                    # tag the candidate level as high
+                    reference_count_per_match_obj[reference_column][candidate_level_col] = 'HIGH_CANDIDATE'
 
-                # if no candidate tables were not found for this ref column
                 if len(reference_count_per_match_obj[reference_column][to_table_col_name]) == 0:
-                    # tag the candidate level as no candidates
+                    match = re.compile(r'^(.*\.{}.*)$'.format(reference_as_table))
+                    reference_count_per_match_obj[reference_column][to_table_col_name] = match.findall(all_table_names_str)
+                    reference_count_per_match_obj[reference_column][candidate_level_col] = 'MEDIUM_CANDIDATE'
+
+                if len(reference_count_per_match_obj[reference_column][to_table_col_name]) == 0:
+                    match = re.compile(r'(.*{}.*)'.format(reference_as_table))
+                    reference_count_per_match_obj[reference_column][to_table_col_name] = match.findall(all_table_names_str)
+                    reference_count_per_match_obj[reference_column][candidate_level_col] = 'LOW_CANDIDATE'
+                
+                if len(reference_count_per_match_obj[reference_column][to_table_col_name]) == 0:
                     reference_count_per_match_obj[reference_column][candidate_level_col] = 'NO_CANDIDATE'
-                    # show if a column both doesn't have a candidate table and has no references
-                    reference_count_per_match_obj[reference_column][is_dangling_col] = reference_count_per_match_obj[item[0]]['count'] == 0
+
+                reference_count_per_match_obj[reference_column][to_table_col_name] = list(reference_count_per_match_obj[reference_column][to_table_col_name])
+
+                # # loop through all tables and match 
+                # for table in all_table_names:
+    
+
+                #     if match.match(table):
+                #         # tag the candidate level as high
+                #         reference_count_per_match_obj[reference_column][candidate_level_col] = 'HIGH_CANDIDATE'
+
+                
+                #     # if no candidate tables were not found for this ref column
+                #     if len(reference_count_per_match_obj[reference_column][to_table_col_name]) == 0:
+                    
+                #         # loop through all tables and match 
+                #         for table in all_table_names:
+
+                #             # do another match with the ref column but only tb_ is required in the front
+                #             match = re.compile(r'(.*\.tb_{}.*)'.format(reference_as_table))
+
+                #             if match.match(table):
+                #                 reference_count_per_match_obj[reference_column][to_table_col_name].append(table)
+                #                 # tag the candidate level as medium
+                #                 reference_count_per_match_obj[reference_column][candidate_level_col] = 'MEDIUM_CANDIDATE'
+
+                    
+                #     # if no candidate tables were not found for this ref column
+                #     if len(reference_count_per_match_obj[reference_column][to_table_col_name]) == 0:
+                    
+                #         # loop through all tables and match 
+                #         for table in all_table_names:
+                        
+                #             # do another match with the ref column that contains the name
+                #             match = re.compile(r'(.*{}.*)'.format(reference_as_table))
+                            
+                #             if match.match(table):
+                #                 reference_count_per_match_obj[reference_column][to_table_col_name].append(table)
+                #                 # tag the candidate level as low
+                #                 reference_count_per_match_obj[reference_column][candidate_level_col] = 'LOW_CANDIDATE'
+
+
+                #     # if no candidate tables were not found for this ref column
+                #     if len(reference_count_per_match_obj[reference_column][to_table_col_name]) == 0:
+                #         # tag the candidate level as no candidates
+                #         reference_count_per_match_obj[reference_column][candidate_level_col] = 'NO_CANDIDATE'
+                #         # show if a column both doesn't have a candidate table and has no references
+                #         reference_count_per_match_obj[reference_column][is_dangling_col] = reference_count_per_match_obj[item[0]]['count'] == 0
 
 
             # dump collected data to json
@@ -163,5 +189,8 @@ if __name__ == '__main__':
             open('tmp/guess_reference_data.json', 'w').write(json_print)
 
 
+            # close table connections because we no longer query the database
+            cursor.close()
+            conn.close()
     except Error as e:
         print(e)
