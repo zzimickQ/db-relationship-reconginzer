@@ -14,6 +14,12 @@ get started by installing mysql connector package using the following command
 $ pip install mysql-connector-python
 ```
 
+if you don't have pip in your path use the following command
+
+```sh
+$ python3 -m pip install mysql-connector-python
+```
+
 ## Creating Pridictions File
 
 To get the predicted relationships from a database use the python file `predictive.py`
